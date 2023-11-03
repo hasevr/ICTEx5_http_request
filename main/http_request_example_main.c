@@ -25,7 +25,7 @@
 
 #include <esp_adc/adc_oneshot.h>
 /* Constants that aren't configurable in menuconfig */
-#define WEB_SERVER "example.com"
+#define WEB_SERVER "192.168.12.179"
 #define WEB_PORT "50000"
 #define WEB_PATH "/getadc?ADC="
 
@@ -33,16 +33,10 @@ static const char *TAG = "example";
 
 //static const char *REQUEST = "GET " WEB_PATH " HTTP/1.0\r\n"
 //    "Host: "WEB_SERVER":"WEB_PORT"\r\n"
-//    "User-Agent: esp-idf/1.0 esp32\r\n"
-//    "\r\n";
-
-//  ADC setting
-static adc_oneshot_unit_handle_t adc1_handle;
-static adc_oneshot_unit_init_cfg_t init_config1 = {
-    .unit_id = ADC_UNIT_1,
-    .ulp_mode = ADC_ULP_MODE_DISABLE,
-};
-
+ //   "User-Agent: esp-idf/1.0 esp32\r\n"
+ //   "\r\n";
+ //  ADC setting
+ static adc_oneshot_unit_handle_t adc1_handle;
 
 static void http_get_task(void *pvParameters)
 {
@@ -89,17 +83,16 @@ static void http_get_task(void *pvParameters)
 
         ESP_LOGI(TAG, "... connected");
         freeaddrinfo(res);
-
-        static const char *REQ1 = "GET " WEB_PATH;
-        static const char *REQ2 = " HTTP/1.0\r\n"
-            "Host: "WEB_SERVER":"WEB_PORT"\r\n"
-            "User-Agent: esp-idf/1.0 esp32\r\n\r\n";
-        static char REQUEST[100];
-        int value = 0;
-        adc_oneshot_read(adc1_handle, ADC_CHANNEL_6, &value);
-        strcpy(REQUEST, REQ1);
-        sprintf(REQUEST + strlen(REQUEST), "%d", value);
-        strcat(REQUEST, REQ2);
+   static const char *REQ1 = "GET " WEB_PATH;
+   static const char *REQ2 = " HTTP/1.0\r\n"
+       "Host: "WEB_SERVER":"WEB_PORT"\r\n"
+       "User-Agent: esp-idf/1.0 esp32\r\n\r\n";
+   static char REQUEST[100];
+   int value = 0;
+   adc_oneshot_read(adc1_handle, ADC_CHANNEL_6, &value);
+   strcpy(REQUEST, REQ1);
+   sprintf(REQUEST + strlen(REQUEST), "%d", value);
+   strcat(REQUEST, REQ2);
         if (write(s, REQUEST, strlen(REQUEST)) < 0) {
             ESP_LOGE(TAG, "... socket send failed");
             close(s);
@@ -141,6 +134,17 @@ static void http_get_task(void *pvParameters)
 
 void app_main(void)
 {
+ static adc_oneshot_unit_init_cfg_t adc_init_config1 = {
+    .unit_id = ADC_UNIT_1,
+    .ulp_mode = ADC_ULP_MODE_DISABLE,
+ };
+ static adc_oneshot_chan_cfg_t adc1_chan6_cfg = {
+    .atten = ADC_ATTEN_DB_11,
+    .bitwidth = ADC_BITWIDTH_12,
+ };
+ ESP_ERROR_CHECK(adc_oneshot_new_unit(&adc_init_config1, &adc1_handle));
+ ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, ADC_CHANNEL_6, &adc1_chan6_cfg));
+
     ESP_ERROR_CHECK( nvs_flash_init() );
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
@@ -150,8 +154,6 @@ void app_main(void)
      * examples/protocols/README.md for more information about this function.
      */
     ESP_ERROR_CHECK(example_connect());
-
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
 
     xTaskCreate(&http_get_task, "http_get_task", 4096, NULL, 5, NULL);
 }
